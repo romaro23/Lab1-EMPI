@@ -1,25 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Drawing.Text;
-using System.IO.Pipes;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MathNet.Numerics.Distributions;
-using ScottPlot.MultiplotLayouts;
-using ScottPlot.Plottables;
+﻿using System.Diagnostics.SymbolStore;
 
 namespace Lab1
 {
     public class Data
     {
         public static Tuple<List<double>, List<double>> Data_ { get; set; } = new Tuple<List<double>, List<double>>(new List<double>(), new List<double>());
+        public static List<double> OldXs { get; set; } = new List<double>(); 
         public static List<DataView> DataView_ { get; set; } = new List<DataView>();
         public static List<StatsView> XStatsView { get; set; } = new List<StatsView>();
         public static List<StatsView> YStatsView { get; set; } = new List<StatsView>();
         public static List<CriteriaView> CriteriaViews { get; set; } = new List<CriteriaView>();
+        public static List<CriteriaView> ComparingCriteria { get; set; } = new List<CriteriaView>();
+        public static List<RegressionView> RegressionView_ { get; set; } = new List<RegressionView>();
+        public static List<FTestView> FTest { get; set; } = new List<FTestView>();
+
+        public static List<RegressionView> CalculateValueView { get; set; } = new List<RegressionView>(); 
         public static Stats Stats_ { get; set; } = new Stats();
+        public static Regression Regression_ { get; set; } = new Regression();
 
         public class DataView
         {
@@ -29,7 +26,7 @@ namespace Lab1
 
         public class StatsView
         {
-            public string Name { get; set; }
+            public string? Name { get; set; }
             public double Estimate { get; set; }
             public double Deviation { get; set; }
             public double LeftInterval { get; set; }
@@ -48,12 +45,240 @@ namespace Lab1
 
         }
 
+        public class RegressionView
+        {
+            public string? Name { get; set; }
+            public double Estimate { get; set; }
+            public double Deviation { get; set; }
+            public double LeftInterval { get; set; }
+            public double RightInterval { get; set; }
+            public double Statistics { get; set; }
+            public double Quantile { get; set; }
+            public string? Conclusion { get; set; }
+        }
+
+        public class FTestView
+        {
+            public string? Name { get; set; }
+            public double Statistics { get; set; }
+            public double Quantile { get; set; }
+            public string? Conclusion { get; set; }
+        }
+        public class Regression
+        {
+            private Tuple<List<double>, List<double>> _data;
+            private Stats _xStats, _yStats;
+            private double _a, _b, _pearson;
+            public Tuple<List<double>, List<double>> Data
+            {
+                get => _data;
+                set => _data = value ?? throw new ArgumentNullException(nameof(value));
+            }
+
+            public Stats XStats
+            {
+                get => _xStats;
+                set => _xStats = value ?? throw new ArgumentNullException(nameof(value));
+            }
+
+            public Stats YStats
+            {
+                get => _yStats;
+                set => _yStats = value ?? throw new ArgumentNullException(nameof(value));
+            }
+
+            public double A
+            {
+                get => _a;
+                set => _a = value;
+            }
+
+            public double B
+            {
+                get => _b;
+                set => _b = value;
+            }
+
+            public double Pearson
+            {
+                get => _pearson;
+                set => _pearson = value;
+            }
+
+            private int _n;
+
+            public FTestView RSquaredView()
+            {
+                return new FTestView
+                {
+                    Name = "R\u00B2",
+                    Statistics = RSquared(),
+                    Conclusion = "",
+                    Quantile = 0
+                };
+            }
+
+            public FTestView ResidualsDispersionView()
+            {
+                return new FTestView
+                {
+                    Name = "S\u00B2\u2091",
+                    Statistics = ResidualsDispersion(),
+                    Conclusion = "",
+                    Quantile = 0
+                };
+            }
+            public double RSquared()
+            {
+                var s = _data.GetType().GenericTypeArguments.Length;
+                var value = 1 - ResidualsDispersion() * (_n - s) / (Math.Pow(_yStats.S, 2) * _n);
+                return value * 100;
+            }
+            public FTestView FTest()
+            {
+                var fValue = FValue();
+                var fisher = Stats_.GetFisherQuantile(1, _n - 2, 0.05);
+                string conclusion = fValue > fisher ? "Регресія значуща" : "Регресія не значуща";
+                return new FTestView
+                {
+                    Name = "F",
+                    Statistics = fValue,
+                    Quantile = fisher,
+                    Conclusion = conclusion
+                };
+            }
+            public double FValue()
+            {
+                var ys = _data.Item1.Select(CalculateValue).ToList();
+                var sum = ys.Select(y => Math.Pow(y - _yStats.Mean, 2)).Sum();
+                return sum / ResidualsDispersion();
+            }
+            public void SetValues(Tuple<List<double>, List<double>> data, Stats xStats, Stats yStats, double pearson)
+            {
+                _data = data;
+                _xStats = xStats;
+                _yStats = yStats;
+                _pearson = pearson;
+                _n = _data.Item1.Count;
+                CalculateBParameter();
+                CalculateAParameter();
+            }
+
+            public double PredictiveValueDeviation(double x)
+            {
+                return Math.Sqrt(Math.Pow(RegressionDeviation(x), 2) + ResidualsDispersion());
+            }
+            public double RegressionDeviation(double x)
+            {
+                var dispersion = ResidualsDispersion();
+                var bDeviation = BDeviation(dispersion);
+                var value = dispersion / _n + Math.Pow(bDeviation * (x - _xStats.Mean), 2);
+                return Math.Sqrt(value);
+            }
+            public (RegressionView, RegressionView) EstimateParameters()
+            {
+                var dispersion = ResidualsDispersion();
+                var aDeviation = ADeviation(dispersion);
+                var bDeviation = BDeviation(dispersion);
+                var aLow = Low(_a, aDeviation);
+                var aHigh = High(_a, aDeviation);
+                var bLow = Low(_b, bDeviation);
+                var bHigh = High(_b, bDeviation);
+                var aStats = Stats(_a, aDeviation);
+                var bStats = Stats(_b, bDeviation);
+                var student = Stats_.GetStudentQuantile(_n, 0.05, 2);
+                string aResult = "Не значущий";
+                if (Math.Abs(aStats) > student)
+                {
+                    aResult = "Значущий";
+                }
+                string bResult = "Не значущий";
+                if (Math.Abs(bStats) > student)
+                {
+                    bResult = "Значущий";
+                }
+
+                RegressionView aView = new RegressionView
+                {
+                    Name = "a",
+                    Estimate = _a,
+                    Deviation = aDeviation,
+                    LeftInterval = aLow,
+                    RightInterval = aHigh,
+                    Statistics = aStats,
+                    Quantile = student,
+                    Conclusion = aResult
+                };
+                RegressionView bView = new RegressionView
+                {
+                    Name = "b",
+                    Estimate = _b,
+                    Deviation = bDeviation,
+                    LeftInterval = bLow,
+                    RightInterval = bHigh,
+                    Statistics = bStats,
+                    Quantile = student,
+                    Conclusion = bResult
+                };
+                return (aView, bView);
+            }
+
+            public double Stats(double value, double deviation)
+            {
+                return value / deviation;
+            }   
+            public double High(double value, double deviation)
+            {
+                var t = Stats_.GetStudentQuantile(_n, 0.05, 2);
+                return value + t * deviation;
+            }
+
+            public double Low(double value, double deviation)
+            {
+                var t = Stats_.GetStudentQuantile(_n, 0.05, 2);
+                return value - t * deviation;
+            }
+            public double BDeviation(double dispersion)
+            {
+                var value = dispersion / (_n * Math.Pow(_xStats.S, 2));
+                return Math.Sqrt(value);
+            }
+            public double ADeviation(double dispersion)
+            {
+                var value = dispersion / _n * (1 + Math.Pow(_xStats.Mean, 2) / Math.Pow(_xStats.S, 2));
+                return Math.Sqrt(value);
+            }
+            public double ResidualsDispersion()
+            {
+                var xs = _data.Item1;
+                var ys = _data.Item2;
+                var ysRecovered = xs.Select(x => CalculateValue(x)).ToList();
+                var residuals = ys.Zip(ysRecovered, (y, yRecovered) => y - yRecovered).ToList();
+                var residualsSquared = residuals.Select(r => Math.Pow(r, 2)).ToList();
+                var sum = residualsSquared.Sum();
+                return 1.0 / (_n  - 2) * sum;
+            }
+            public double CalculateValue(double x)
+            {
+                return _a + _b * x;
+            }
+            public void CalculateBParameter()
+            {
+                _b = _pearson * (_yStats.S / _xStats.S);
+            }
+
+            public void CalculateAParameter()
+            {
+                _a = _yStats.Mean - _xStats.Mean * _b;
+            }
+        }
         public class Stats
         {
             public int N;
+            public int k = 0;
             public double Mean, Med, S_, S, A_, A, E_, E, MeanDeviation, S_Deviation, A_Deviation, E_Deviation, T, MeanLow, MeanHigh, MedLow, MedHigh, S_Low, S_High, A_Low, A_High, E_Low, E_High;
-            public Stats XStats { get; set; }
-            public Stats YStats { get; set; }
+            public Stats? XStats { get; set; }
+            public Stats? YStats { get; set; }
 
             public void InitializeStats()
             {
@@ -207,10 +432,8 @@ namespace Lab1
                 var u = 3 * kendall * Math.Sqrt(n * (n - 1)) / Math.Sqrt(2 * (2 * n + 5));
                 var absU = Math.Abs(u);
                 var normal = MathNet.Numerics.Distributions.Normal.InvCDF(0, 1, 1 - 0.05 / 2);
-                string conclusion;
-                string relationConclusion;
-                conclusion = "Не значущий";
-                relationConclusion = "Монотонного зв'язку немає";
+                string conclusion = "Не значущий";
+                string relationConclusion = "Монотонного зв'язку немає";
                 if (absU > normal)
                 {
                     conclusion = "Значущий";
@@ -229,9 +452,12 @@ namespace Lab1
                 });
             }
 
-            public CriteriaView CalculateCorrelationRatio(Tuple<List<double>, List<double>> data)
+            public (CriteriaView, CriteriaView) CalculateCorrelationRatio(Tuple<List<double>, List<double>> data)
             {
-                int k = (int)(1 + 1.44 * Math.Log(data.Item1.Count));
+                if (k == 0)
+                {
+                    k = (int)(1 + 1.44 * Math.Log(data.Item1.Count));
+                }
                 double h = (data.Item1.Max() - data.Item1.Min()) / k;
                 int l = 1;
                 double g = 0;
@@ -242,7 +468,14 @@ namespace Lab1
                     g = data.Item1.Min() + (i - 1) * h;
                     if (i > 1)
                     {
-                        classes.Add(new Tuple<double, double>(temp, g));
+                        if (i == k + 1)
+                        {
+                            classes.Add(new Tuple<double, double>(temp, data.Item1.Max()));
+                        }
+                        else
+                        {
+                            classes.Add(new Tuple<double, double>(temp, g));
+                        }
                     }
                 }
                 Dictionary<double, List<double>> newData = new Dictionary<double, List<double>>();
@@ -277,8 +510,11 @@ namespace Lab1
                 double groupVariance = 0;
                 foreach (var list in newData)
                 {
-                    var diff = list.Value.Average() - yAvg;
-                    groupVariance += Math.Pow(diff, 2) * list.Value.Count;
+                    if (list.Value.Count > 0)
+                    {
+                        var diff = list.Value.Average() - yAvg;
+                        groupVariance += Math.Pow(diff, 2) * list.Value.Count;
+                    }
                 }
 
                 groupVariance = groupVariance / n;
@@ -291,30 +527,75 @@ namespace Lab1
                 variance = variance / n;
                 
                 var correlationRatio = Math.Sqrt(groupVariance / variance);
-                var f = (correlationRatio / (k - 1)) / ((1 - correlationRatio) / (n - k));
+                var correlationRatioSquared = Math.Pow(correlationRatio, 2);
+                var f = (correlationRatioSquared / (k - 1)) / ((1 - correlationRatioSquared) / (n - k));
                 var fisher = GetFisherQuantile(k - 1, n, 0.05);
-                string conclusion;
-                string relationConclusion;
-                conclusion = "Не значущий";
-                relationConclusion = "Стохастичного зв'язку немає";
+                string conclusion = "Не значущий";
+                string relationConclusion = "Зв'язку немає";
+                CriteriaView secondResult = new CriteriaView
+                {
+                    Name = "",
+                    Estimate = 0,
+                    LeftInterval = 0,
+                    RightInterval = 0,
+                    Statistics = 0,
+                    Quantile = 0,
+                    Conclusion = "",
+                    RelationConclusion = ""
+                };
                 if (f > fisher)
                 {
                     conclusion = "Значущий";
-                    relationConclusion = "Є стохастичний зв'язок";
-                    
+                    relationConclusion = "Є зв'язок";
+                    Tuple<List<double>, List<double>> oldData = new Tuple<List<double>, List<double>>(new List<double>(), new List<double>());
+                    foreach (var pair in newData)
+                    {
+                        foreach (var y in pair.Value)
+                        {
+                            oldData.Item1.Add(pair.Key);
+                            oldData.Item2.Add(y);
+                        }
+                    }
+                    XStats.CalculateStats(oldData.Item1);
+                    var pearsonCriteria = CalculatePearsonCriteria(oldData);
+                    var pearson = pearsonCriteria.Estimate;
+                    var pearsonSquared = Math.Pow(pearsonCriteria.Estimate, 2);
+                    var f_ = ((correlationRatioSquared - pearsonSquared) / (k - 2)) / ((1 - correlationRatioSquared) / (n - k));
+                    var fisher_ = GetFisherQuantile(k - 2, n - k, 0.05);
+                    string conclusion_;
+                    string relationConclusion_;
+                    conclusion_ = "Не рівні";
+                    relationConclusion_ = "Лінійного зв'язку немає";
+                    if (f_ <= fisher_)
+                    {
+                        conclusion_ = "Рівні";
+                        relationConclusion_ = "Є лінійний зв'язок";
+                    }
+                    secondResult = new CriteriaView
+                    {
+                        Name = "",
+                        Estimate = pearson,
+                        LeftInterval = correlationRatio,
+                        RightInterval = 0,
+                        Statistics = f_,
+                        Quantile = fisher_,
+                        Conclusion = conclusion_,
+                        RelationConclusion = relationConclusion_
+                    };
                 }
-                return new CriteriaView
-                {
-                    Name = "Кореляційне відношення",
-                    Estimate = correlationRatio,
-                    LeftInterval = 0,
-                    RightInterval = 0,
-                    Statistics = f,
-                    Quantile = fisher,
-                    Conclusion = conclusion,
-                    RelationConclusion = relationConclusion
-                };
-                Console.ReadLine();
+                CriteriaView firstResult = new CriteriaView
+               {
+                   Name = "Кореляційне відношення",
+                   Estimate = correlationRatio,
+                   LeftInterval = 0,
+                   RightInterval = 0,
+                   Statistics = f,
+                   Quantile = fisher,
+                   Conclusion = conclusion,
+                   RelationConclusion = relationConclusion
+               };
+                return (firstResult, secondResult);
+
             }
             public CriteriaView CalculateSpearmanCriteria(Tuple<List<double>, List<double>> data)
             {
@@ -362,10 +643,8 @@ namespace Lab1
                 var t = spearman * Math.Sqrt(n - 2) / (Math.Sqrt(1 - Math.Pow(spearman, 2)));
                 var absT = Math.Abs(t);
                 var student = GetStudentQuantile(n, 0.05, 2);
-                string conclusion;
-                string relationConclusion;
-                conclusion = "Не значущий";
-                relationConclusion = "Монотонного зв'язку немає";
+                string conclusion = "Не значущий";
+                string relationConclusion = "Монотонного зв'язку немає";
                 if (absT > student)
                 {
                     conclusion = "Значущий";
@@ -383,7 +662,7 @@ namespace Lab1
                     RelationConclusion = relationConclusion
                 });
             }
-            public void ShowStats(List<Data.StatsView> statsView)
+            public void ShowStats(List<StatsView> statsView)
             {
                 statsView.Add(new StatsView
                 {
@@ -433,12 +712,17 @@ namespace Lab1
                 var spearmanCriteria = CalculateSpearmanCriteria(data);
                 var kendallCriteria = CalculateKendallCriteria(data);
                 var correlationRatio = CalculateCorrelationRatio(data);
+                CriteriaViews.Add(pearsonCriteria);
+                CriteriaViews.Add(spearmanCriteria);
+                CriteriaViews.Add(kendallCriteria);
+                CriteriaViews.Add(correlationRatio.Item1);
+                ComparingCriteria.Add(correlationRatio.Item2);
             }
             public double GetStudentQuantile(int N, double alpha, int freedom)
             {
                 return MathNet.Numerics.Distributions.StudentT.InvCDF(0.0, 1.0, (double)N - freedom, 1 - alpha / 2);
             }
-            private double GetFisherQuantile(double v1, double v2, double alpha)
+            public double GetFisherQuantile(double v1, double v2, double alpha)
             {
                 return MathNet.Numerics.Distributions.FisherSnedecor.InvCDF(v1, v2, 1 - alpha);
             }

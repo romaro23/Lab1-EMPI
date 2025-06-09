@@ -12,66 +12,133 @@
     <Window.Resources>
         <local:Converter x:Key="Converter"/>
     </Window.Resources>
-    <Grid>
-
-        <Grid Margin="989,10,10,564">
-            <ScottPlot:WpfPlot x:Name="CorrelationField" BorderThickness="1" BorderBrush="Black"/>
-        </Grid>
-        <Button Click="ButtonBase_OnClick" BorderThickness="2" Content="Load data" FontSize="15" HorizontalAlignment="Left" Height="28" Margin="4,3,0,0" VerticalAlignment="Top" Width="107" BorderBrush="DimGray">
-            <Button.Resources>
-                <Style TargetType="Border">
-                    <Setter Property="CornerRadius" Value="15"></Setter>
-                </Style>
-            </Button.Resources>
-        </Button>
-        <Grid Height="300" Margin="10,40,0,0" VerticalAlignment="Top" HorizontalAlignment="Left">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="148"></ColumnDefinition>
-                <ColumnDefinition Width="390"></ColumnDefinition>
-                <ColumnDefinition Width="390"></ColumnDefinition>
-            </Grid.ColumnDefinitions>
-            <DataGrid Grid.Column="0" Margin="0,25,10,0" CanUserResizeColumns="False" CanUserResizeRows="False" x:Name="DataGrid"/>
-            <Label  HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="1" Content="Для ознаки X"></Label>
-            <Label  HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="2" Content="Для ознаки Y"></Label>
-            <DataGrid Margin="0,25,0,0" CanUserAddRows="False" AutoGenerateColumns="False" Grid.Column="1" Height="140" VerticalAlignment="Top"  x:Name="XStats">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Характеристика"  Binding="{Binding Name}"/>
-                    <DataGridTextColumn Header="Оцінка"  Binding="{Binding Estimate,Converter={StaticResource Converter}}"/>
-                    <DataGridTextColumn Header="Середньоквадратичне відхилення оцінки" Binding="{Binding Deviation,Converter={StaticResource Converter}}"/>
-                    <DataGridTextColumn Header="95% довірчий інтервал для характеристики (лівий)"  Binding="{Binding LeftInterval,Converter={StaticResource Converter}}"/>
-                    <DataGridTextColumn Header="95% довірчий інтервал для характеристики (правий)"  Binding="{Binding RightInterval,Converter={StaticResource Converter}}"/>
-                </DataGrid.Columns>
-            </DataGrid>
-            <DataGrid CanUserAddRows="False" AutoGenerateColumns="False" Grid.Column="2" Height="140" VerticalAlignment="Top" Margin="10,25,0,0" x:Name="YStats" >
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Характеристика"  Binding="{Binding Name}"/>
-                    <DataGridTextColumn Header="Оцінка"  Binding="{Binding Estimate,Converter={StaticResource Converter}}"/>
-                    <DataGridTextColumn Header="Середньоквадратичне відхилення оцінки" Binding="{Binding Deviation,Converter={StaticResource Converter}}"/>
-                    <DataGridTextColumn Header="95% довірчий інтервал для характеристики (лівий)"  Binding="{Binding LeftInterval,Converter={StaticResource Converter}}"/>
-                    <DataGridTextColumn Header="95% довірчий інтервал для характеристики (правий)"  Binding="{Binding RightInterval,Converter={StaticResource Converter}}"/>
-                </DataGrid.Columns>
-            </DataGrid>
-            <Canvas>
-                <DataGrid  AutoGenerateColumns="False" CanUserAddRows="False" x:Name="CriteriaGrid" Height="128" Width="780" Canvas.Left="149" Canvas.Top="172">
+    <Grid Background="#F7F9FC" Margin="10">
+        <StackPanel>
+            <Grid Height="400" VerticalAlignment="Top">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="0.2*"></RowDefinition>
+                    <RowDefinition Height="1*"></RowDefinition>
+                    <RowDefinition Height="0.7*"></RowDefinition>
+                    <RowDefinition Height="0.5*"></RowDefinition>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.4*"></ColumnDefinition>
+                    <ColumnDefinition Width="*"></ColumnDefinition>
+                    <ColumnDefinition Width="*"></ColumnDefinition>
+                    <ColumnDefinition Width="1.7*"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" Grid.ColumnSpan="2">
+                    <Button x:Name="LoadData" Click="LoadData_Click" Content="Завантажити дані" FontSize="14" Width="140" Height="30" Margin="10,0"/>
+                    <TextBlock VerticalAlignment="Center"  Text="Кількість класів k:" Margin="10,0"/>
+                    <TextBox Name="Classes" Width="50" Height="20" Margin="10,0"/>
+                    <Button Name="SelectK" Content="Задати" Width="80" Height="20" Click="SelectK_OnClick" Margin="10,0"/>
+                </StackPanel>
+                <DataGrid CanUserAddRows="False" Grid.Row="1" Grid.RowSpan="3" Grid.Column="0" x:Name="DataGrid" Margin="5" AutoGenerateColumns="True" VerticalAlignment="Top"/>
+                <StackPanel HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1"  Margin="5">
+                    <TextBlock Text="Для ознаки X" FontWeight="Bold" HorizontalAlignment="Center" Margin="0 0 0 5"/>
+                    <DataGrid CanUserAddRows="False" x:Name="XStats" AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Характеристика" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Header="Оцінка" Binding="{Binding Estimate, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="СКВ оцінки" Binding="{Binding Deviation, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="95% інтервал (лівий)" Binding="{Binding LeftInterval, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="95% інтервал (правий)" Binding="{Binding RightInterval, Converter={StaticResource Converter}}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2" Margin="5">
+                    <TextBlock Text="Для ознаки Y" FontWeight="Bold" HorizontalAlignment="Center" Margin="0 0 0 5"/>
+                    <DataGrid CanUserAddRows="False" x:Name="YStats" AutoGenerateColumns="False" >
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Характеристика" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Header="Оцінка" Binding="{Binding Estimate, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="СКВ оцінки" Binding="{Binding Deviation, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="95% інтервал (лівий)" Binding="{Binding LeftInterval, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="95% інтервал (правий)" Binding="{Binding RightInterval, Converter={StaticResource Converter}}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+                <ScottPlot:WpfPlot Grid.Row="1" Grid.RowSpan="2" Grid.Column="3" x:Name="CorrelationField" BorderThickness="1" BorderBrush="Black"/>
+                <StackPanel Margin="5" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <DataGrid CanUserAddRows="False" x:Name="CriteriaGrid" AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Критерій" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Header="Оцінка" Binding="{Binding Estimate, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Інтервал (лівий)" Binding="{Binding LeftInterval, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Інтервал (правий)" Binding="{Binding RightInterval, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Статистика" Binding="{Binding Statistics, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Квантиль" Binding="{Binding Quantile, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Висновок" Binding="{Binding Conclusion, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Взаємозв’язок" Binding="{Binding RelationConclusion, Converter={StaticResource Converter}}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+                <StackPanel Margin="5" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <DataGrid CanUserAddRows="False" x:Name="ComparingGrid" AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Коеф. Пірсона" Binding="{Binding Estimate, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Кореляц. відношення" Binding="{Binding LeftInterval, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Статистика" Binding="{Binding Statistics, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Квантиль" Binding="{Binding Quantile, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Висновок" Binding="{Binding Conclusion, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="Тип залежності" Binding="{Binding RelationConclusion, Converter={StaticResource Converter}}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+                <StackPanel Grid.Row="3" Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Name="Linear" Content="Відновити лінійну регресію" Width="170" Height="30" Click="RecoveryRegression_OnClick" Margin="10,10"/>
+                    <Button Name="Nonlinear" Content="Відновити нелінійну регресію" Width="175" Height="30" Click="RecoveryRegression_OnClick" Margin="10,10"/>
+                    <Button Name="Return" Content="Повернутися до x" Width="120" Height="30" Click="RecoveryRegression_OnClick" Margin="10,10"/>
+                </StackPanel>
+            </Grid>
+            <Grid Height="450">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="0.3*"></RowDefinition>
+                    <RowDefinition Height="*"></RowDefinition>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.3*"></ColumnDefinition>
+                    <ColumnDefinition Width="0.58*"></ColumnDefinition>
+                    <ColumnDefinition Width="1*"></ColumnDefinition>
+                    <ColumnDefinition Width="0.1*"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                <DataGrid   CanUserAddRows="False" x:Name="ParametersGrid" AutoGenerateColumns="False" HorizontalAlignment="Left" VerticalAlignment="Top">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Критерій"  Binding="{Binding Name}"/>
-                        <DataGridTextColumn Header="Оцінка"  Binding="{Binding Estimate,Converter={StaticResource Converter}}"/>
-                        
-                        <DataGridTextColumn Header="95% довірчий інтервал для характеристики (лівий)"  Binding="{Binding LeftInterval,Converter={StaticResource Converter}}"/>
-                        <DataGridTextColumn Header="95% довірчий інтервал для характеристики (правий)"  Binding="{Binding RightInterval,Converter={StaticResource Converter}}"/>
-                        <DataGridTextColumn Header="Статистика" Binding="{Binding Statistics,Converter={StaticResource Converter}}"/>
-                        <DataGridTextColumn Header="Квантиль" Binding="{Binding Quantile,Converter={StaticResource Converter}}"/>
-                        <DataGridTextColumn Header="Висновок 
-(значущий/ 
-незначущий)" Binding="{Binding Conclusion,Converter={StaticResource Converter}}"/>
-                        <DataGridTextColumn Header="Висновок щодо 
-наявності 
-взаємозв’язку 
-(є/немає) " Binding="{Binding RelationConclusion,Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="" Binding="{Binding Name}" Width=""/>
+                        <DataGridTextColumn Header="Значення оцінки" Binding="{Binding Estimate, Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="СКВ оцінки" Binding="{Binding Deviation, Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="95% інтервал (лівий)" Binding="{Binding LeftInterval, Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="95% інтервал (правий)" Binding="{Binding RightInterval, Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="Статистика" Binding="{Binding Statistics, Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="Квантиль" Binding="{Binding Quantile, Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="Висновок" Binding="{Binding Conclusion, Converter={StaticResource Converter}}"/>
+
                     </DataGrid.Columns>
                 </DataGrid>
-            </Canvas>
-
-        </Grid>
+                <DataGrid Margin="10,0" Grid.Column="1" CanUserAddRows="False" x:Name="FTestGrid" AutoGenerateColumns="False" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="" Binding="{Binding Name}" Width=""/>
+                        <DataGridTextColumn Header="Статистика" Binding="{Binding Statistics, Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="Квантиль" Binding="{Binding Quantile, Converter={StaticResource Converter}}"/>
+                        <DataGridTextColumn Header="Висновок" Binding="{Binding Conclusion, Converter={StaticResource Converter}}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Grid.Column="2">
+                    <StackPanel  Orientation="Horizontal" VerticalAlignment="Top">
+                        <TextBlock VerticalAlignment="Center"  Text="Розрахувати за x:" Margin="10,0"/>
+                        <TextBox Name="X" Width="50" Height="20" Margin="10,0"/>
+                        <Button Name="CalculateValue" Content="Розрахувати" Width="80" Height="20" Click="CalculateValue_Click" Margin="10,0"/>
+                    </StackPanel>
+                    <DataGrid Margin="5,10" CanUserAddRows="False" x:Name="RegressionGrid" AutoGenerateColumns="False" HorizontalAlignment="Left" VerticalAlignment="Top">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Значення регресії" Binding="{Binding Estimate, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="95% інтервал (лівий)" Binding="{Binding LeftInterval, Converter={StaticResource Converter}}"/>
+                            <DataGridTextColumn Header="95% інтервал (правий)" Binding="{Binding RightInterval, Converter={StaticResource Converter}}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
     </Grid>
+
 </Window>
